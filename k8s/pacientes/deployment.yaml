@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pacientes-service
+  namespace: veterinaria
+  labels:
+    app: pacientes-service
+    version: "1.0.0"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pacientes-service
+  template:
+    metadata:
+      labels:
+        app: pacientes-service
+        version: "1.0.0"
+    spec:
+      containers:
+        - name: pacientes-service
+          # Imagen local construida apuntando al daemon de Minikube
+          image: pacientes-service:1.0.0
+          # Never: usa siempre la imagen local, no intenta bajarla de un registry
+          imagePullPolicy: Never
+          ports:
+            - name: http
+              containerPort: 8081
+              protocol: TCP
+          # Variables de entorno configuradas desde el manifiesto
+          env:
+            - name: SERVER_PORT
+              value: "8081"
+            - name: ARTIFICIAL_DELAY_MS
+              value: "0"
+          # Liveness probe: reinicia el contenedor si la app está bloqueada
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8081
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
+            timeoutSeconds: 5
+          # Readiness probe: saca el pod del balanceo si no está listo
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8081
+            initialDelaySeconds: 20
+            periodSeconds: 5
+            failureThreshold: 3
+            timeoutSeconds: 3
+          # Límites y solicitudes de recursos
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"

@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: citas-service
+  namespace: veterinaria
+  labels:
+    app: citas-service
+    version: "1.0.0"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: citas-service
+  template:
+    metadata:
+      labels:
+        app: citas-service
+        version: "1.0.0"
+    spec:
+      containers:
+        - name: citas-service
+          image: citas-service:1.0.0
+          imagePullPolicy: Never
+          ports:
+            - name: http
+              containerPort: 8082
+              protocol: TCP
+          # Variables de entorno: URL interna de pacientes-service dentro del cluster
+          env:
+            - name: SERVER_PORT
+              value: "8082"
+            - name: PACIENTES_SERVICE_URL
+              value: "http://pacientes-service.veterinaria.svc.cluster.local:8081"
+            - name: PACIENTES_TIMEOUT_SEGUNDOS
+              value: "3"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8082
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8082
+            initialDelaySeconds: 20
+            periodSeconds: 5
+            failureThreshold: 3
+            timeoutSeconds: 3
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"

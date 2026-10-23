@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: veterinaria
+  labels:
+    app: clinica-veterinaria
+    environment: development

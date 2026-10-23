@@ -1,0 +1,24 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: pacientes-service-monitor
+  # El ServiceMonitor va en el mismo namespace que el stack de monitoreo
+  namespace: monitoring
+  labels:
+    # Este label debe coincidir con el serviceMonitorSelector del values.yaml
+    release: kube-prometheus-stack
+spec:
+  # Busca Services en el namespace "veterinaria"
+  namespaceSelector:
+    matchNames:
+      - veterinaria
+  # Selecciona el Service que tenga este label
+  selector:
+    matchLabels:
+      monitor: veterinaria
+      app: pacientes-service
+  endpoints:
+    - port: http          # Nombre del puerto en el Service (debe ser "http")
+      path: /metrics      # Ruta donde Spring Boot Actuator expone Prometheus
+      interval: 15s       # Frecuencia de scraping
+      scrapeTimeout: 10s

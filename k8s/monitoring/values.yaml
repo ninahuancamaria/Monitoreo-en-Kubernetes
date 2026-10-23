@@ -1,0 +1,99 @@
+# ============================================================================
+# values.yaml — kube-prometheus-stack
+# Clínica Veterinaria — Monitoreo en Kubernetes
+# ============================================================================
+
+# ── Grafana ──────────────────────────────────────────────────────────────────
+grafana:
+  enabled: true
+
+  # Contraseña del admin de Grafana
+  adminPassword: "veterinaria2026"
+
+  service:
+    type: NodePort
+    nodePort: 30300
+
+  # Configuración por defecto de dashboards
+  defaultDashboardsEnabled: true
+  defaultDashboardsTimezone: "America/Santiago"
+
+  grafana.ini:
+    server:
+      root_url: "%(protocol)s://%(domain)s:%(http_port)s/"
+    security:
+      allow_embedding: true
+
+# ── Prometheus ───────────────────────────────────────────────────────────────
+prometheus:
+  enabled: true
+
+  service:
+    type: NodePort
+    nodePort: 30090
+
+  prometheusSpec:
+    # CLAVE: sin esta configuración Prometheus ignora los ServiceMonitors
+    # que estén fuera del namespace monitoring.
+    # matchLabels: {} significa "acepta ServiceMonitors de CUALQUIER namespace"
+    serviceMonitorSelector:
+      matchLabels:
+        release: kube-prometheus-stack
+
+    # Acepta ServiceMonitors de todos los namespaces
+    serviceMonitorNamespaceSelector: {}
+
+    # Acepta PrometheusRules de todos los namespaces
+    ruleSelector:
+      matchLabels:
+        release: kube-prometheus-stack
+
+    ruleNamespaceSelector: {}
+
+    # Retención de métricas
+    retention: 7d
+
+    # Recursos para el pod de Prometheus
+    resources:
+      requests:
+        memory: "400Mi"
+        cpu: "200m"
+      limits:
+        memory: "800Mi"
+        cpu: "500m"
+
+# ── AlertManager ─────────────────────────────────────────────────────────────
+alertmanager:
+  enabled: true
+
+  service:
+    type: NodePort
+    nodePort: 30093
+
+  alertmanagerSpec:
+    resources:
+      requests:
+        memory: "100Mi"
+        cpu: "50m"
+      limits:
+        memory: "200Mi"
+        cpu: "100m"
+
+# ── Prometheus Operator ───────────────────────────────────────────────────────
+prometheusOperator:
+  enabled: true
+  resources:
+    requests:
+      memory: "100Mi"
+      cpu: "50m"
+    limits:
+      memory: "200Mi"
+      cpu: "200m"
+
+# ── Node Exporter ─────────────────────────────────────────────────────────────
+nodeExporter:
+  enabled: true
+
+# ── kube-state-metrics ────────────────────────────────────────────────────────
+kubeStateMetrics:
+  enabled: true

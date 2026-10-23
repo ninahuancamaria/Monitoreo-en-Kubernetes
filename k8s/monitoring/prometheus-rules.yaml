@@ -1,0 +1,89 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: veterinaria-alertas
+  namespace: monitoring
+  labels:
+    # Labels obligatorios para que el Prometheus Operator recoja esta regla
+    release: kube-prometheus-stack
+    app: kube-prometheus-stack
+spec:
+  groups:
+    - name: veterinaria.servicios
+      interval: 30s
+      rules:
+
+        # ── Alerta 1: Servicio pacientes-service caído ───────────────────────
+        - alert: PacientesServiceCaido
+          expr: up{job="pacientes-service-monitor"} == 0
+          for: 1m
+          labels:
+            severity: critical
+            servicio: pacientes-service
+          annotations:
+            summary: "pacientes-service está CAÍDO"
+            description: >
+              El servicio pacientes-service no responde al scraping de Prometheus.
+              Verifica el estado del pod con: kubectl get pods -n veterinaria.
+              Los pods de citas-service también fallarán al no poder verificar pacientes.
+
+        # ── Alerta 2: Servicio citas-service caído ───────────────────────────
+        - alert: CitasServiceCaido
+          expr: up{job="citas-service-monitor"} == 0
+          for: 1m
+          labels:
+            severity: critical
+            servicio: citas-service
+          annotations:
+            summary: "citas-service está CAÍDO"
+            description: >
+              El servicio citas-service no responde al scraping de Prometheus.
+              Los usuarios no pueden agendar citas en la clínica veterinaria.
+              Verifica el estado del pod con: kubectl get pods -n veterinaria.
+
+        # ── Alerta 3 (negocio): Alta tasa de errores de comunicación ─────────
+        # Se dispara cuando hay más de 5 errores por minuto en la comunicación
+        # entre citas-service y pacientes-service
+        - alert: AltaTasaErroresComunicacionVeterinaria
+          expr: >
+            rate(citas_errores_comunicacion_pacientes_total[5m]) * 60 > 0.5
+          for: 2m
+          labels:
+            severity: warning
+            servicio: citas-service
+          annotations:
+            summary: "Alta tasa de errores entre citas y pacientes"
+            description: >
+              citas-service está registrando timeouts o errores al contactar
+              pacientes-service. Tasa actual: {{ $value | humanize }} errores/minuto.
+              Esto puede deberse a un delay artificial o a sobrecarga en pacientes-service.
+
+        # ── Alerta 4 (negocio): Delay artificial alto en pacientes-service ───
+        # Detecta cuando el delay supera el timeout configurado en citas-service
+        - alert: DelayArtificialPacientesAlto
+          expr: pacientes_delay_artificial_ms > 2500
+          for: 30s
+          labels:
+            severity: warning
+            servicio: pacientes-service
+          annotations:
+            summary: "pacientes-service tiene delay artificial alto"
+            description: >
+              El delay artificial en pacientes-service es de {{ $value }}ms,
+              lo que supera el timeout de citas-service (3000ms).
+              Esto está causando timeouts en el flujo de agendamiento de citas.
+              Para resolver: kubectl set env deployment/pacientes-service ARTIFICIAL_DELAY_MS=0 -n veterinaria
+
+        # ── Alerta 5 (negocio): Pacientes activos por debajo del umbral ──────
+        - alert: PocasCitasPendientes
+          expr: citas_pendientes_actual < 1
+          for: 5m
+          labels:
+            severity: info
+            servicio: citas-service
+          annotations:
+            summary: "No hay citas pendientes en la clínica"
+            description: >
+              El número de citas pendientes es {{ $value }}.
+              Puede indicar que el servicio se reinició y perdió estado,
+              o que todas las citas fueron atendidas/canceladas.
